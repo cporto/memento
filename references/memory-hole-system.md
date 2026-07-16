@@ -25,13 +25,13 @@ The core insight: **LLM memory doesn't need infrastructure.** The agent reads fi
 - **Local:** `~/Documents/GitHub/memory-hole/`
 - **Repo:** `github.com/your-org/memory-hole` (private)
 
-## File Structure
-## File Structure
+## File Structure (template)
+## File Structure (template)
 
 ```
 memory-hole/
 ├── START_MEMORY_HOLE.md    # System rules and activation instructions
-├── WHO_I_AM.md             # User profile — who Carlos is, how they work
+├── WHO_I_AM.md             # User profile — who they are, how they work
 ├── Memory_Hole.md           # Event-based update trigger rules
 └── projects/               # One file per project, updated as work progresses
     ├── project-name-1.md

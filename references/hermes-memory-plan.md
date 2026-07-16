@@ -39,7 +39,7 @@ A batch extract-and-append system can't do this. But a full daemon is overkill f
   - `low` → `staging/` directory, manual review
 - Heartbeat logging to `log.md` so missed runs are visible
 
-**Where it runs:** Cron on M4 Pro (mac-mini-24), daily at 6am
+**Where it runs:** Cron on local machine, daily at 6am
 
 **Why it's not enough alone:** Pure append-only. Can't resolve contradictions, can't prune orphans, can't propagate changes. If the user moves cities, it writes "lives in Y" next to "lives in X" and walks away.
 

@@ -48,7 +48,7 @@ HOME = Path.home()
 WIKI_DIR = HOME / "wiki"
 DB_PATH = HOME / ".hermes" / "state.db"
 CHECKPOINT = WIKI_DIR / ".checkpoint"
-LOCK_SCRIPT = HOME / ".hermes" / "scripts" / "wiki-lock.sh"
+LOCK_SCRIPT = Path(__file__).resolve().parent / "wiki-lock.sh"
 LOCK_NAME = "extraction"
 EXPECTED_HERMES_VERSION = "0.18"  # Prefix match: allows 0.18.x, rejects 0.19+
 MIN_MESSAGES = 2  # Skip sessions with fewer user/assistant messages
@@ -563,7 +563,7 @@ set `candidate_page` to null.
 
 IMPORTANT -- Match Broadly, Not Just by Title:
 - The same entity can be mentioned by different names. "Mac Mini M4" IS the same
-  machine as "byt" or "mac-mini-24". "oMLX config fix" belongs to the "oMLX" page.
+  machine as "gpu-box" or "workstation-01". "oMLX config fix" belongs to the "oMLX" page.
   "Hermes-4-14B-4bit" is a model loaded by oMLX -- set candidate_page to "oMLX".
   "Gemma 4" is a model that could run on oMLX -- set candidate_page to "oMLX".
 - If the session mentions a topic that has a wiki page about it, set
@@ -571,7 +571,7 @@ IMPORTANT -- Match Broadly, Not Just by Title:
   about an existing topic, set candidate_page to that topic.
 - If the session CORRECTS information about an existing page (e.g. says
   "Mac Mini M4 not MacBook Air"), set candidate_page to the page that needs
-  correction ("byt" or "mac-mini-24").
+  correction ("gpu-box" or "workstation-01").
 - Only set candidate_page to null if the fact is genuinely about a new topic
   that has NO existing wiki page at all.
 
@@ -616,17 +616,17 @@ Example:
     "sources": ["abc123"],
     "confidence": "high",
     "candidate_page": null,
-    "related_pages": ["byt", "mac-mini-24"]
+    "related_pages": ["gpu-box", "workstation-01"]
   }},
   {{
     "type": "entity",
     "title": "Hermes Agent",
-    "summary": "AI assistant by Nous Research. Config was fixed to add Tavily provider as fallback. Provider config uses YAML under ~/.hermes/config.yaml. Runs on mac-mini-24 (M4 Pro, 24GB).",
+    "summary": "AI assistant by Nous Research. Config uses YAML under ~/.hermes/config.yaml. Connects to local LLM via oMLX.",
     "tags": ["tooling", "software"],
     "sources": ["abc123"],
     "confidence": "high",
     "candidate_page": "Hermes Agent",
-    "related_pages": ["byt", "oMLX"]
+    "related_pages": ["gpu-box", "oMLX"]
   }}
 ]"""
 
@@ -651,7 +651,7 @@ You have been given the FULL content of existing wiki pages that may relate to f
 - The fact's summary is the UPDATED version of the page content, not an appendage
 
 CRITICAL -- Alias/Identity Matching:
-A single physical entity may have different names across pages. "Mac Mini M4" IS the same machine as "byt" (its hostname). "Mac Mini M4 Pro 24GB" IS the same machine as "mac-mini-24". These are aliases, not different entities. If the session describes a machine by its specs (chassis + RAM) and an existing page describes the same specs, TREAT THEM AS THE SAME ENTITY. The existing page's title wins. Do not create a new page for "Mac Mini M4" when "byt" already exists and describes the same Mac Mini M4 16GB.
+A single physical entity may have different names across pages. "Mac Mini M4" IS the same machine as "gpu-box" (its hostname). "Mac Mini M4 Pro 24GB" IS the same machine as "workstation-01". These are aliases, not different entities. If the session describes a machine by its specs (chassis + RAM) and an existing page describes the same specs, TREAT THEM AS THE SAME ENTITY. The existing page's title wins. Do not create a new page for "Mac Mini M4" when "gpu-box" already exists and describes the same Mac Mini M4 16GB.
 
 CRITICAL -- body_action Field:
 You MUST set `body_action` to one of:
@@ -672,7 +672,7 @@ CRITICAL -- Backlinks Required on Every New Page:
 Every new page (entity, concept, comparison, decision) MUST include [[wikilinks]] in its
 summary that point to at least 1-2 existing related pages. For example:
 - A new "Gemma 4" entity page should have [[oMLX]] in its summary
-- A new "Mac Mini M4" page should have [[byt]] or [[mac-mini-24]] in its summary
+- A new "Mac Mini M4" page should have [[gpu-box]] or [[workstation-01]] in its summary
 - A new concept page should link to the entity page it describes
 - A new decision page should link to the entity/concept it affects
 
@@ -731,13 +731,13 @@ Example (append):
   {{
     "type": "entity",
     "title": "Hermes Agent",
-    "summary": "AI assistant by Nous Research. Now uses DeepSeek V4 Flash via OpenRouter for main tasks. Config at ~/.hermes/config.yaml. Connects to [[byt]] for local LLM via [[oMLX]].",
+    "summary": "AI assistant by Nous Research. Now uses DeepSeek V4 Flash via OpenRouter for main tasks. Config at ~/.hermes/config.yaml. Connects to [[gpu-box]] for local LLM via [[oMLX]].",
     "tags": ["tooling", "software"],
     "sources": ["abc123"],
     "confidence": "high",
     "body_action": "append",
     "replaces": null,
-    "related_pages": ["byt", "oMLX"]
+    "related_pages": ["gpu-box", "oMLX"]
   }}
 ]
 
@@ -745,14 +745,14 @@ Example (replace):
 [
   {{
     "type": "entity",
-    "title": "byt",
+    "title": "gpu-box",
     "summary": "Mac Mini M4, 16GB. Headless inference server.",
     "tags": ["hardware"],
     "sources": ["abc123"],
     "confidence": "high",
     "body_action": "replace",
     "replaces": "MacBook Air, 16GB. Headless inference server.",
-    "related_pages": ["mac-mini-24", "oMLX"]
+    "related_pages": ["workstation-01", "oMLX"]
   }}
 ]"""
 

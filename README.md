@@ -4,6 +4,8 @@
 
 Memento is a **zero-daemon, CLI + cron** memory system for AI agents. It extracts facts from session transcripts, writes them to a structured markdown wiki, and keeps the wiki healthy — all without a vector DB, MCP daemon, or cloud API.
 
+> **Curation note:** The current implementation covers extraction and linting. Semantic curation (contradiction resolution, orphan wiring, deduplication) is a documented future direction — see `references/hermes-memory-plan.md` for the design.
+
 ## Architecture
 
 ```
@@ -39,6 +41,7 @@ Memento is a **zero-daemon, CLI + cron** memory system for AI agents. It extract
 2. **Install dependencies:**
    ```bash
    pip install pyyaml
+   chmod +x memento/scripts/*.sh
    ```
 
 3. **Set up the extraction pipeline:**

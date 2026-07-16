@@ -6,7 +6,7 @@
 
 set -euo pipefail
 
-SCRIPT_DIR="$HOME/.hermes/scripts"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$SCRIPT_DIR"
 
 echo "[$(date)] Starting session-to-wiki auto extraction (Qwen3.5-9B, max 10)..." >&2
