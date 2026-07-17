@@ -148,3 +148,7 @@ memento/
 ## License
 
 MIT — use freely, share widely.
+
+## Inspiration
+
+Memento was directly inspired by [Codacus](https://youtube.com/@Codacus) (Anirban Kar) and his [understory](https://github.com/thecodacus/understory) project — the best practical demonstration of persistent agent memory we've seen. The "Enrich Before You Create" and "Link Both Ways" rules come straight from his YouTube walkthrough. Go watch his channel and star his repo.

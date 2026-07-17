@@ -4,6 +4,10 @@
 <svg version="1.1" id="Capa_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
 	 width="357.661px" height="69.25px" viewBox="63.035 67.25 357.661 69.25" enable-background="new 63.035 67.25 357.661 69.25"
 	 xml:space="preserve">
+<style>
+  path { fill: #000000; }
+  @media (prefers-color-scheme: dark) { path { fill: #ffffff; } }
+</style>
 <g id="_x23_000000ff">
 	<path d="M63.035,67.25h357.661v69.25H63.035V67.25 M79.28,82.13c-0.763,0.282-1.65,0.508-2.119,1.208
 		c-1.054,1.533-0.986,3.444-1.328,5.183c-0.884,0.368-1.828,0.806-2.227,1.702c-0.74,1.632-0.669,3.458-0.836,5.197
