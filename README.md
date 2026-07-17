@@ -6,7 +6,9 @@
   <em>A persistent, cross-session memory system for LLM agents. Named after the Nolan film — a three-layer architecture that turns conversations into a durable, interlinked knowledge base.</em>
 </p>
 
-Memento is a **zero-daemon, CLI + cron** memory system for AI agents. It extracts facts from session transcripts, writes them to a structured markdown wiki, and keeps the wiki healthy — all without a vector DB, MCP daemon, or cloud API.
+Memento is a **zero-daemon, CLI + cron** memory system for AI agents. It extracts facts from conversation transcripts, writes them to a structured markdown wiki, and keeps the wiki healthy — all without a vector DB, MCP daemon, or cloud API.
+
+Named after the Nolan film — a three-layer architecture that turns conversations into durable, interlinked knowledge. Inspired by [Codacus](https://youtube.com/@Codacus) (Anirban Kar) and his [understory](https://github.com/thecodacus/understory) project, which is the best practical demonstration of persistent agent memory we've seen. The "Enrich Before You Create" and "Link Both Ways" rules come straight from his YouTube walkthrough.
 
 > **Curation note:** The current implementation covers extraction and linting. Semantic curation (contradiction resolution, orphan wiring, deduplication) is a documented future direction — see `references/hermes-memory-plan.md` for the design.
 
@@ -151,4 +153,5 @@ MIT — use freely, share widely.
 
 ## Inspiration
 
-Memento was directly inspired by [Codacus](https://youtube.com/@Codacus) (Anirban Kar) and his [understory](https://github.com/thecodacus/understory) project — the best practical demonstration of persistent agent memory we've seen. The "Enrich Before You Create" and "Link Both Ways" rules come straight from his YouTube walkthrough. Go watch his channel and star his repo.
+- [Codacus](https://youtube.com/@Codacus) (Anirban Kar) — the channel that sparked this whole approach
+- [understory](https://github.com/thecodacus/understory) — his self-wiring MCP memory daemon. Star it.
