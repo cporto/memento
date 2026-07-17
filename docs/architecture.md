@@ -8,7 +8,7 @@ Memento is inspired by the human brain's memory system:
 - Fast, always-on, injected every turn
 - ~2K character capacity
 - For: preferences, corrections, environment facts
-- Implemented as the agent's built-in memory tool
+- Implemented as Hermes Agent's built-in memory tool
 
 ### Layer 2: Hippocampus (Wiki)
 - Deep, structured, unlimited
@@ -68,7 +68,7 @@ The LLM reliably ignores prose instructions about formatting. The fix: add a req
 ## Safety Infrastructure
 
 - **Lock file:** `wiki-lock.sh` with atomic `mkdir` for mutual exclusion between extraction and curation cron jobs
-- **Version pin:** Script aborts if Hermes version doesn't match expected
+- **Version pin:** Script aborts if Hermes Agent version doesn't match expected
 - **Per-session checkpoint:** Flat `.checkpoint` file, append-only. Crash-safe
 - **Git auto-commit:** Every extraction run produces a descriptive commit
 - **Git-based crash recovery:** `git checkout -- .` + `git clean -fd` to revert uncommitted state from a prior crash

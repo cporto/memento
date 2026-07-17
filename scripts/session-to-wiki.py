@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""session-to-wiki.py — Extract durable facts from Hermes sessions to OKF wiki pages.
+"""session-to-wiki.py — Extract durable facts from Hermes Agent sessions to OKF wiki pages.
 
 Modes:
   default:   Query new sessions, print JSON tasks to stdout.
@@ -97,7 +97,7 @@ def run_cmd(cmd: list, check: bool = True, timeout: int = 30) -> subprocess.Comp
 # -- Safety: version check, lock, git, dirty-tree recovery --------------------
 
 def version_check():
-    """Abort if Hermes version doesn't match expected."""
+    """Abort if Hermes Agent version doesn't match expected."""
     result = run_cmd(["hermes", "--version"])
     if EXPECTED_HERMES_VERSION not in result.stdout:
         # Write a distinguishable heartbeat log entry so the failure is visible
@@ -111,10 +111,10 @@ def version_check():
         except Exception:
             pass  # Don't mask the abort with a logging error
         abort(
-            f"Hermes version mismatch: expected {EXPECTED_HERMES_VERSION}*, got: "
+            f"Hermes Agent version mismatch: expected {EXPECTED_HERMES_VERSION}*, got: "
             f"{result.stdout.strip()}"
         )
-    log(f"Hermes version OK")
+    log(f"Hermes Agent version OK")
 
 
 def acquire_lock() -> bool:
