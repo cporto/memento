@@ -1,6 +1,10 @@
-# Memento
+<p align="center">
+  <img src="assets/memento-logo.svg" alt="Memento" width="400">
+</p>
 
-> A persistent, cross-session memory system for LLM agents. Named after the Nolan film — a three-layer architecture that turns conversations into a durable, interlinked knowledge base.
+<p align="center">
+  <em>A persistent, cross-session memory system for LLM agents. Named after the Nolan film — a three-layer architecture that turns conversations into a durable, interlinked knowledge base.</em>
+</p>
 
 Memento is a **zero-daemon, CLI + cron** memory system for AI agents. It extracts facts from session transcripts, writes them to a structured markdown wiki, and keeps the wiki healthy — all without a vector DB, MCP daemon, or cloud API.
 
