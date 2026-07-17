@@ -5,7 +5,7 @@
 - Python 3.10+
 - PyYAML (`pip install pyyaml`)
 - An LLM endpoint accessible via HTTP (OpenAI-compatible API)
-- An agent with a SQLite session store (Hermes Agent or compatible)
+- An agent with a SQLite session store — specifically [Hermes Agent](https://hermes-agent.nousresearch.com) (the pipeline reads `~/.hermes/state.db` directly)
 
 ## Installation
 
@@ -41,9 +41,9 @@ export LLM_API_KEY="your-api-key"
 export LLM_MODEL="Qwen3.5-9B-MLX-4bit"
 ```
 
-### Hermes Session Injection
+### Hermes Agent System Prompt Injection
 
-In your agent's system prompt, add:
+In Hermes Agent's system prompt, add:
 
 ```
 SESSION START: read ~/wiki/index.md in full before any substantive reply.

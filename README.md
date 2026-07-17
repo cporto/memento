@@ -3,10 +3,10 @@
 </p>
 
 <p align="center">
-  <em>A persistent, cross-session memory system for LLM agents. Named after the Nolan film — a three-layer architecture that turns conversations into a durable, interlinked knowledge base.</em>
+  <em>A persistent, cross-session memory system for Hermes Agent. Named after the Nolan film — a three-layer architecture that turns conversations into a durable, interlinked knowledge base.</em>
 </p>
 
-Memento is a **zero-daemon, CLI + cron** memory system for AI agents. It extracts facts from conversation transcripts, writes them to a structured markdown wiki, and keeps the wiki healthy — all without a vector DB, MCP daemon, or cloud API.
+Memento is a **zero-daemon, CLI + cron** memory system for [Hermes Agent](https://hermes-agent.nousresearch.com). It extracts facts from conversation transcripts, writes them to a structured markdown wiki, and keeps the wiki healthy — all without a vector DB, MCP daemon, or cloud API.
 
 Named after the Nolan film — a three-layer architecture that turns conversations into durable, interlinked knowledge. Inspired by [Codacus](https://youtube.com/@Codacus) (Anirban Kar) and his [understory](https://github.com/thecodacus/understory) project, which is the best practical demonstration of persistent agent memory we've seen. The "Enrich Before You Create" and "Link Both Ways" rules come straight from his YouTube walkthrough.
 
@@ -38,7 +38,7 @@ Named after the Nolan film — a three-layer architecture that turns conversatio
 
 ## Quick Start
 
-1. **Clone the repo** and symlink the wiki directory:
+1. **Clone the repo** (requires Hermes Agent — the pipeline reads its SQLite DB):
    ```bash
    git clone https://github.com/your-org/memento ~/memento
    ln -s ~/memento/wiki ~/wiki
@@ -61,7 +61,7 @@ Named after the Nolan film — a three-layer architecture that turns conversatio
    python3 memento/scripts/session-to-wiki.py --auto --max 5
    ```
 
-4. **Wire the wiki into your agent's system prompt:**
+4. **Wire the wiki into Hermes Agent's system prompt:**
    ```
    SESSION START: read ~/wiki/index.md in full before any substantive reply.
    Read last 15 lines of ~/wiki/log.md for recent changes.
@@ -144,8 +144,10 @@ memento/
 
 - Python 3.10+
 - PyYAML
-- Hermes Agent (or any agent with a SQLite session store matching the schema)
+- [Hermes Agent](https://hermes-agent.nousresearch.com) — the pipeline reads `~/.hermes/state.db` directly
 - An LLM endpoint (local or API) accessible via HTTP
+
+> **Not a universal tool.** The extraction pipeline reads Hermes Agent's SQLite session database. If you run another agent, the concepts and wiki schema are portable but the pipeline needs a different DB adapter.
 
 ## License
 
