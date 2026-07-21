@@ -60,6 +60,9 @@ The default wrapper uses Qwen3.5-9B on a local oMLX server. Edit the env vars to
 export LLM_API_BASE_URL="http://127.0.0.1:8000/v1"
 export LLM_API_KEY="your-api-key"
 export LLM_MODEL="Qwen3.5-9B-MLX-4bit"
+export LLM_ALLOW_THINKING="false"      # thinking models: prevents output-token exhaustion (finish_reason=length)
+export LLM_MAX_TOKENS="8192"
+export MEMENTO_TRANSCRIPT_BUDGET="50000"
 ```
 
 ### Performance Tuning

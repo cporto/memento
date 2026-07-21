@@ -70,3 +70,37 @@ Theme: **failed and empty are different things.** Every serious v5 bug traced ba
 - Existing pages with loose `Backlinks:` lines migrate automatically on their next touch.
 - `.retry` and `.health` appear in the wiki dir; add both to `.gitignore` alongside `.checkpoint` if it's tracked.
 - Create `~/.memento/hints.md` with your machine-alias knowledge (hostname ↔ hardware mappings) — that content intentionally no longer ships in the prompts.
+
+## v6.1 (2026-07-21)
+
+Changes driven by live integration against oMLX + Qwen3.5-9B-MLX-4bit on a
+16GB host, after the first production runs surfaced failures the test suite
+cannot reach:
+
+1. **urllib → requests.** `urllib.request.urlopen()` crashed with
+   `IncompleteRead` on chunked responses. `requests.post()` +
+   `raise_for_status()` with equivalent exception coverage
+   (`ChunkedEncodingError` included).
+2. **Thinking-model handling, verified empirically.** oMLX returns thinking
+   in a separate `reasoning_content` field — content stays clean JSON. The
+   real failure mode of thinking left on is output-token exhaustion
+   (`finish_reason=length`) plus ~20x latency, not JSON pollution.
+   `chat_template_kwargs: {"enable_thinking": false}` is honored and fixes
+   both; it is only sent when `LLM_ALLOW_THINKING` is explicitly set, since
+   cloud fallback APIs may reject nonstandard fields.
+3. **raw_decode JSON salvage.** Fence-stripping replaced by scanning to the
+   first bracket and `json.JSONDecoder().raw_decode` — handles fences,
+   preamble, and trailers, and cannot corrupt content the way pattern-based
+   stripping could.
+4. **Adaptive retry budget.** Retrying a failed session with identical
+   parameters reproduces identical failures. The chunk budget now halves per
+   prior failed attempt (floor 12K chars), so oversized-chunk truncation
+   actually resolves across retries.
+5. **Crash recovery preserves pipeline state.** `.retry`/`.health`/
+   `.checkpoint` are snapshotted before `git checkout`/`git clean` and
+   restored after — if a past run accidentally committed them, recovery
+   no longer reverts them to stale content (which silently erased retry
+   counts). Keep them gitignored regardless.
+6. **Default transcript budget 60K → 50K** chars (16GB KV-cache ceiling).
+7. **Pipeline exit-code capture fixed** under `set -euo pipefail`: partial
+   runs (exit 3) no longer skip the lint step.

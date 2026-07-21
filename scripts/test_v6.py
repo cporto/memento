@@ -139,6 +139,8 @@ msgs = [("user", "a" * 300), ("assistant", "b" * 300), ("user", "c" * 300)]
 chunks = s2w.build_transcript_chunks(msgs)  # budget=500 via env
 check("chunking splits over budget", len(chunks) >= 2, f"{len(chunks)} chunks")
 check("chunking loses no messages", "".join(chunks).count("[USER]") + "".join(chunks).count("[ASSISTANT]") == 3)
+tight = s2w.build_transcript_chunks(msgs, budget=310)
+check("chunking honors explicit budget", len(tight) == 3, f"{len(tight)} chunks at budget=310")
 big = "x" * 20000
 tr = s2w.truncate_message(big)
 check("per-msg truncation head+tail", tr.startswith("x" * 100) and tr.endswith("x" * 100) and "elided" in tr)

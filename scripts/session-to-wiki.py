@@ -74,12 +74,11 @@ import sqlite3
 import subprocess
 import sys
 import time
-import urllib.error
-import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
+import requests
 import yaml
 
 # -- Configuration ----------------------------------------------------------
@@ -98,7 +97,7 @@ MIN_MESSAGES = 2
 # Tunables (env-overridable, with reasoning for defaults)
 MAX_RETRY_ATTEMPTS = int(os.environ.get("MEMENTO_MAX_RETRY", "5"))
 MIN_SESSION_AGE_MIN = int(os.environ.get("MEMENTO_MIN_AGE_MIN", "120"))
-TRANSCRIPT_BUDGET = int(os.environ.get("MEMENTO_TRANSCRIPT_BUDGET", "60000"))
+TRANSCRIPT_BUDGET = int(os.environ.get("MEMENTO_TRANSCRIPT_BUDGET", "50000"))
 PER_MSG_CAP = 10000          # chars; head+tail kept, middle elided
 LLM_MAX_TOKENS = int(os.environ.get("LLM_MAX_TOKENS", "8192"))
 HINTS_FILE = Path(os.environ.get("MEMENTO_HINTS_FILE", HOME / ".memento" / "hints.md"))
@@ -309,11 +308,18 @@ def recover_dirty_tree():
 
         dirty_count = len(result.stdout.strip().splitlines())
         log(f"Tree is dirty ({dirty_count} uncommitted changes) -- recovering from crash", "WARN")
+        # Pipeline state must survive recovery even if a past run accidentally
+        # committed it: checkout would revert .retry to stale content, silently
+        # erasing attempt counts recorded earlier in this run.
+        state_files = (RETRY_FILE, HEALTH_FILE, CHECKPOINT)
+        saved_state = {p: p.read_text() for p in state_files if p.exists()}
         run_cmd(["git", "-C", str(WIKI_DIR), "checkout", "--", "."], check=False, timeout=10)
         log("Reverted modified tracked files")
         run_cmd(["git", "-C", str(WIKI_DIR), "clean", "-fd", "-e", "staging/"],
                 check=False, timeout=10)
         log("Removed untracked files (preserved staging/)")
+        for p, content in saved_state.items():
+            p.write_text(content)
 
         result2 = run_cmd(["git", "-C", str(WIKI_DIR), "status", "--porcelain"],
                           check=False, timeout=10)
@@ -973,14 +979,16 @@ def truncate_message(content: str) -> str:
     return f"{head}\n[... {elided} chars elided ...]\n{tail}"
 
 
-def build_transcript_chunks(msgs: list) -> list[str]:
-    """Build one or more transcript strings, each under TRANSCRIPT_BUDGET.
+def build_transcript_chunks(msgs: list, budget: int = 0) -> list[str]:
+    """Build one or more transcript strings, each under `budget` chars
+    (TRANSCRIPT_BUDGET when 0).
 
     Long sessions previously blew the local model's context window and the
     enrichment pass silently skipped (the oMLX failure). Chunking keeps every
     chunk within budget; the per-page dedup layer absorbs overlap in facts
     extracted from different chunks of the same session.
     """
+    budget = budget or TRANSCRIPT_BUDGET
     rendered = []
     for role, content in msgs:
         label = "USER" if role == "user" else "ASSISTANT"
@@ -991,7 +999,7 @@ def build_transcript_chunks(msgs: list) -> list[str]:
     current_len = 0
     for part in rendered:
         part_len = len(part) + 2
-        if current and current_len + part_len > TRANSCRIPT_BUDGET:
+        if current and current_len + part_len > budget:
             chunks.append("\n\n".join(current))
             current = []
             current_len = 0
@@ -1027,7 +1035,6 @@ def call_llm_for_extraction(prompt: str, session_id: str) -> Optional[list]:
         return None
 
     url = f"{base_url.rstrip('/')}/chat/completions"
-    allow_thinking = os.environ.get("LLM_ALLOW_THINKING", "").lower() in ("1", "true", "yes")
     body_dict = {
         "model": model,
         "messages": [
@@ -1037,9 +1044,13 @@ def call_llm_for_extraction(prompt: str, session_id: str) -> Optional[list]:
         "temperature": 0.1,
         "max_tokens": LLM_MAX_TOKENS,
     }
-    if not allow_thinking:
+    # chat_template_kwargs is a local-server extension (oMLX/vLLM); cloud APIs
+    # may reject unknown fields, so only send it when LLM_ALLOW_THINKING is
+    # explicitly configured. Thinking left on burns the max_tokens budget on
+    # reasoning (finish_reason=length) and adds ~20x latency per call.
+    allow_thinking_env = os.environ.get("LLM_ALLOW_THINKING")
+    if allow_thinking_env is not None and allow_thinking_env.lower() not in ("1", "true", "yes"):
         body_dict["chat_template_kwargs"] = {"enable_thinking": False}
-    body = json.dumps(body_dict).encode("utf-8")
 
     headers = {"Content-Type": "application/json"}
     if api_key:
@@ -1050,15 +1061,14 @@ def call_llm_for_extraction(prompt: str, session_id: str) -> Optional[list]:
 
     for attempt in range(1, max_retries + 2):
         try:
-            req = urllib.request.Request(url, data=body, headers=headers, method="POST")
-            with urllib.request.urlopen(req, timeout=180) as resp:
-                raw = resp.read()
+            resp = requests.post(url, json=body_dict, headers=headers, timeout=180)
+            resp.raise_for_status()
 
-            if not raw or not raw.strip():
+            if not resp.content or not resp.content.strip():
                 log(f"[{session_id}] Empty HTTP response from LLM", "ERROR")
                 return None
 
-            data = json.loads(raw)
+            data = resp.json()
             choice = data["choices"][0]
             content = choice["message"]["content"]
 
@@ -1076,14 +1086,25 @@ def call_llm_for_extraction(prompt: str, session_id: str) -> Optional[list]:
                 return None
 
             cleaned = content.strip()
-            if cleaned.startswith("```"):
-                first_nl = cleaned.find("\n")
-                if first_nl != -1:
-                    cleaned = cleaned[first_nl:].strip()
-                if cleaned.endswith("```"):
-                    cleaned = cleaned[:-3].strip()
-
-            facts = json.loads(cleaned)
+            try:
+                facts = json.loads(cleaned)
+            except json.JSONDecodeError:
+                # Models sometimes wrap the array in markdown fences or emit a
+                # short preamble despite the system prompt. Salvage by decoding
+                # from the first bracket: raw_decode stops at the end of the
+                # value, so fences/preamble/trailers can't corrupt the parse
+                # the way pattern-based stripping could.
+                facts = None
+                for start in (i for i in (cleaned.find("["), cleaned.find("{")) if i != -1):
+                    try:
+                        facts, _ = json.JSONDecoder().raw_decode(cleaned[start:])
+                        break
+                    except json.JSONDecodeError:
+                        continue
+                if facts is None:
+                    log(f"[{session_id}] No parseable JSON in LLM response "
+                        f"(first 120 chars: {cleaned[:120]!r})", "ERROR")
+                    return None
             if not isinstance(facts, list):
                 log(f"[{session_id}] LLM response not a JSON array", "ERROR")
                 return None
@@ -1128,22 +1149,24 @@ def call_llm_for_extraction(prompt: str, session_id: str) -> Optional[list]:
 
             return facts
 
-        except urllib.error.HTTPError as exc:
-            if exc.code == 429:
+        except requests.exceptions.HTTPError as exc:
+            status = exc.response.status_code
+            if status == 429:
                 if attempt == 1:
                     log(f"[{session_id}] Rate limited (429) -- retrying after 5s", "WARN")
                     time.sleep(5)
                     continue
                 log(f"[{session_id}] Rate limited (429) again -- giving up", "ERROR")
                 return None
-            elif 400 <= exc.code < 500:
-                snippet = exc.read().decode("utf-8", errors="replace")[:200]
-                log(f"[{session_id}] HTTP {exc.code}: {snippet}", "ERROR")
+            elif 400 <= status < 500:
+                snippet = exc.response.content.decode("utf-8", errors="replace")[:200]
+                log(f"[{session_id}] HTTP {status}: {snippet}", "ERROR")
                 return None
             last_error = exc
-            log(f"[{session_id}] HTTP {exc.code} (attempt {attempt})", "WARN")
+            log(f"[{session_id}] HTTP {status} (attempt {attempt})", "WARN")
 
-        except (urllib.error.URLError, TimeoutError, OSError) as exc:
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout,
+                requests.exceptions.ChunkedEncodingError, OSError) as exc:
             last_error = exc
             log(f"[{session_id}] Network error (attempt {attempt}): {exc}", "WARN")
 
@@ -1895,10 +1918,19 @@ def auto_extract_and_ingest(max_sessions: Optional[int] = None, reprocess: bool 
             save_checkpoint(sid)
             continue
 
-        chunks = build_transcript_chunks(msgs)
+        # Retrying with identical parameters reproduces identical failures
+        # (an oversized chunk that truncates at max_tokens truncates again).
+        # Halve the chunk budget per prior failed attempt so each retry sends
+        # smaller prompts; floor stays above PER_MSG_CAP so chunks still hold
+        # at least one full message.
+        budget = max(TRANSCRIPT_BUDGET // (2 ** retries.get(sid, 0)), 12000)
+        chunks = build_transcript_chunks(msgs, budget)
+        if budget < TRANSCRIPT_BUDGET:
+            log(f"Session {sid[:8]} retry #{retries.get(sid, 0)}: chunk budget "
+                f"reduced to {budget} chars")
         if len(chunks) > 1:
             log(f"Session {sid[:8]} split into {len(chunks)} chunks "
-                f"(budget {TRANSCRIPT_BUDGET} chars)")
+                f"(budget {budget} chars)")
 
         contributions = set()
 
