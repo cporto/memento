@@ -91,7 +91,7 @@ HEALTH_FILE = WIKI_DIR / ".health"
 LOCK_SCRIPT = Path(__file__).resolve().parent / "wiki-lock.sh"
 LOCK_NAME = "extraction"
 LOCK_ROOT = Path(os.environ.get("WIKI_LOCK_DIR", HOME / ".cache" / "wiki-locks"))
-EXPECTED_HERMES_VERSION = "0.18"  # Prefix match: allows 0.18.x, rejects 0.19+
+EXPECTED_HERMES_VERSION = "0.19"  # Prefix match: allows 0.19.x, rejects 0.20+
 MIN_MESSAGES = 2
 
 # Tunables (env-overridable, with reasoning for defaults)
