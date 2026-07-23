@@ -1948,6 +1948,10 @@ def auto_extract_and_ingest(max_sessions: Optional[int] = None, reprocess: bool 
                            f"{sid[:8]}: {title} ({attempts} attempts, giving up; "
                            f"facts from this session are LOST unless re-run "
                            f"with --reprocess)")
+                # Commit the audit line immediately: log.md is tracked, and an
+                # uncommitted append is erased by the next run's crash recovery
+                # if this run is killed before its next per-session commit.
+                git_commit(f"audit: FAILED-PERMANENT {sid[:8]}")
                 save_checkpoint(sid)
                 clear_retry(sid)
                 log(f"Session {sid[:8]} FAILED permanently after {attempts} attempts", "ERROR")
@@ -1990,6 +1994,7 @@ def auto_extract_and_ingest(max_sessions: Optional[int] = None, reprocess: bool 
                     append_log(f"## [{today}] extraction | PASS2-FAILED-PERMANENT -- "
                                f"{sid[:8]}: {title} (pass 1 committed; pass 2 "
                                f"gave up after {attempts} attempts)")
+                    git_commit(f"audit: PASS2-FAILED-PERMANENT {sid[:8]}")
                     save_checkpoint(sid)
                     clear_retry(sid)
                 else:
