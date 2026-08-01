@@ -638,9 +638,11 @@ def get_existing_pages() -> dict:
         for f in sorted(d.iterdir()):
             if f.suffix == ".md":
                 content = f.read_text(encoding="utf-8", errors="replace")
-                m = re.search(r"^title:\s*(.+)$", content, re.MULTILINE)
-                if m:
-                    pages[m.group(1).strip().lower()] = f
+                fm, _ = parse_page_content(content)
+                if fm:
+                    title = str(fm.get("title", "")).strip()
+                    if title:
+                        pages[title.lower()] = f
     return pages
 
 
@@ -2026,8 +2028,10 @@ def run_extraction_pass(session_id: str, title: str, chunks: list,
                     resolved = resolve_type_conflict(
                         fact.get("type", "concept"),
                         existing_fact.get("type", "concept"))
-                    if TYPE_SPECIFICITY.get(fact.get("type"), 0) > TYPE_SPECIFICITY.get(existing_fact.get("type"), 0):
+                    # resolved is the preferred type — keep the fact whose type matches
+                    if resolved == fact.get("type", "concept"):
                         merged[title_lower_key] = fact
+                    # else: keep existing (already in merged)
                 else:
                     merged[title_lower_key] = fact
 
