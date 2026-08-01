@@ -1,0 +1,9 @@
+# ~/.memento/hints.md — local alias hints (NOT committed to the public repo)
+#
+# Injected into extraction prompts at runtime. Keep it short: entity aliases
+# the extractor should treat as the same thing. Example format:
+
+- "host-a" IS the headless inference host (runs Hermes Agent, llama.cpp, oMLX)
+- "host-b" IS the primary desktop
+- Models loaded by oMLX belong on the oMLX page unless the model itself is the topic
+- Hermes config lives at ~/.hermes/config.yaml
