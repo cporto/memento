@@ -10,7 +10,7 @@ Memento is a memory system for [Hermes Agent](https://hermes-agent.nousresearch.
 
 Named after the Nolan film. Inspired by [Codacus](https://youtube.com/@Codacus) (Anirban Kar) and his [understory](https://github.com/thecodacus/understory) project — the best practical demo of persistent agent memory I've seen. The "Enrich Before You Create" and "Link Both Ways" rules are lifted straight from his YouTube walkthrough.
 
-> **Current status:** Extraction and linting work. Semantic curation (resolving contradictions, wiring up orphan pages, deduplication) is planned — see `references/hermes-memory-plan.md`.
+> **Current status:** v7.1 — extraction pipeline with slug registry (prevents duplicates across directories), staging auto-lifecycle (auto-promote at ≥3 sources, auto-purge at >14 days), and enrichment-first write path. Full semantic curation (contradiction resolution, orphan wiring, cross-reference propagation) is next — see `references/hermes-memory-plan.md`.
 
 ## Architecture
 

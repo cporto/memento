@@ -1,6 +1,6 @@
 # Hermes Agent Memory: Two-Layer Design
 
-**Status:** Draft for discussion with Claude  
+**Status:** Design draft (July 2026). Phase 1 shipped as v7.1 (slug registry, staging auto-lifecycle, enrichment-first write path). Phase 2 (wiki-compact.py: contradiction resolution, orphan wiring, cross-reference propagation) not yet built.  
 **Date:** 2026-07-13  
 **Context:** Based on Codacus's understory video, Karpathy's LLM Wiki pattern, and Hermes's existing infrastructure
 
