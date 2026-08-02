@@ -105,7 +105,7 @@ memento/
 │   ├── session-to-wiki.py             # Main extraction pipeline (1792 lines)
 │   ├── wiki-lock.sh                   # Mutual exclusion lock
 │   ├── wiki-lint.sh                   # Wiki health checker
-│   ├── wiki-summary.sh                # Claude snapshot generator
+│   ├── wiki-summary.sh               # Wiki snapshot generator
 │   ├── wiki-extract-pipeline.sh       # Cron wrapper script
 │   └── run-extraction-test.py         # Model comparison test harness
 ├── docs/

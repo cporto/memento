@@ -1,5 +1,5 @@
 #!/bin/bash
-# wiki-summary.sh — Generate a compact wiki snapshot for sharing with Claude
+# wiki-summary.sh — Generate a compact wiki snapshot for sharing with an LLM
 # Usage: wiki-summary.sh [output_path]
 # Default output: ~/wiki/wiki-summary.md
 # Run from ~/wiki/ directory
