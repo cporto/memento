@@ -3,14 +3,14 @@
 </p>
 
 <p align="center">
-  <em>A persistent, cross-session memory system for Hermes Agent. Named after the Nolan film — a three-layer architecture that turns conversations into a durable, interlinked knowledge base.</em>
+  <em>Helping Hermes Agent actually remember what you talked about — across sessions. Named after the Nolan film, built in three layers.</em>
 </p>
 
-Memento is a **zero-daemon, CLI + cron** memory system for [Hermes Agent](https://hermes-agent.nousresearch.com). It extracts facts from conversation transcripts, writes them to a structured markdown wiki, and keeps the wiki healthy — all without a vector DB, MCP daemon, or cloud API.
+Memento is a memory system for [Hermes Agent](https://hermes-agent.nousresearch.com). It reads your past conversations, picks out the important facts, and stores them in a markdown wiki that Hermes can read on every new chat. No vector databases, no always-on servers, no cloud API calls — just scripts and cron jobs.
 
-Named after the Nolan film — a three-layer architecture that turns conversations into durable, interlinked knowledge. Inspired by [Codacus](https://youtube.com/@Codacus) (Anirban Kar) and his [understory](https://github.com/thecodacus/understory) project, which is the best practical demonstration of persistent agent memory we've seen. The "Enrich Before You Create" and "Link Both Ways" rules come straight from his YouTube walkthrough.
+Named after the Nolan film — a three-layer architecture that turns conversations into knowledge that sticks around. Inspired by [Codacus](https://youtube.com/@Codacus) (Anirban Kar) and his [understory](https://github.com/thecodacus/understory) project, which is the best practical demo of persistent agent memory we've seen. The "Enrich Before You Create" and "Link Both Ways" rules come straight from his YouTube walkthrough.
 
-> **Curation note:** The current implementation covers extraction and linting. Semantic curation (contradiction resolution, orphan wiring, deduplication) is a documented future direction — see `references/hermes-memory-plan.md` for the design.
+> **Current status:** The extraction and linting parts work. Semantic curation (resolving contradictions, wiring up orphan pages, deduplication) is planned — see `references/hermes-memory-plan.md` for the design.
 
 ## Architecture
 
@@ -38,7 +38,7 @@ Named after the Nolan film — a three-layer architecture that turns conversatio
 
 ## Quick Start
 
-1. **Clone the repo** (requires Hermes Agent — the pipeline reads its SQLite DB):
+1. **Clone the repo** (you need Hermes Agent — the pipeline reads its SQLite DB):
    ```bash
    git clone https://github.com/your-org/memento ~/memento
    ln -s ~/memento/wiki ~/wiki
@@ -52,16 +52,16 @@ Named after the Nolan film — a three-layer architecture that turns conversatio
 
 3. **Set up the extraction pipeline:**
    ```bash
-   # Configure your LLM endpoint
+   # Point it at your LLM (local or API)
    export LLM_API_BASE_URL="http://127.0.0.1:8000/v1"
    export LLM_API_KEY="your-api-key"
    export LLM_MODEL="your-model"
 
-   # Run a test extraction
+   # Test it out — pulls facts from your last 5 sessions
    python3 memento/scripts/session-to-wiki.py --auto --max 5
    ```
 
-4. **Wire the wiki into Hermes Agent's system prompt:**
+4. **Tell Hermes to read the wiki:**
    ```
    SESSION START: read ~/wiki/index.md in full before any substantive reply.
    Read last 15 lines of ~/wiki/log.md for recent changes.
@@ -77,21 +77,21 @@ Named after the Nolan film — a three-layer architecture that turns conversatio
 
 ### Extraction Pipeline
 - Reads session transcripts from the Hermes SQLite DB
-- Calls an LLM (local or API) to extract structured facts
-- Writes to a markdown wiki with YAML frontmatter, wikilinks, and backlinks
-- Confidence gating: high-confidence → live, low-confidence → staging
+- Calls an LLM (local or API) to pull out structured facts
+- Writes them to a markdown wiki with YAML frontmatter, wikilinks, and backlinks
+- High-confidence facts → live pages; low-confidence → staging area for review
 
 ### Wiki Health
-- `wiki-lint.sh` — checks duplicate slugs, broken [[links]], orphan pages
+- `wiki-lint.sh` — checks for duplicate slugs, broken [[links]], and orphan pages
 - `wiki-summary.sh` — generates a compact snapshot for sharing with other agents
 
 ### Schema
-OKF-compatible markdown with frontmatter:
+Markdown with frontmatter, split into categories:
 - **Entities** — people, machines, projects, tools
 - **Concepts** — techniques, patterns, workflows
-- **Decisions** — with WHY, rejected alternatives, decision weight
-- **Comparisons** — side-by-side analyses
-- **Questions** — open, resolved, or partial
+- **Decisions** — including WHY, what you rejected, and how confident you were
+- **Comparisons** — side-by-side analysis of options
+- **Questions** — open, resolved, or partially answered
 
 ## Project Structure
 
@@ -134,10 +134,10 @@ memento/
 
 ## Design Principles
 
-- **Mechanical vs Intelligent:** Scripts handle deterministic work (DB queries, file writes, git); LLMs handle only the intelligence (fact extraction, entity resolution)
-- **Enrich Before You Create:** Before writing a new page, check existing pages. If a fact belongs to something that exists, enrich it instead of creating a duplicate
-- **Link Both Ways:** Every new page gets backlinks in related existing pages
-- **Confidence Gating:** High-confidence → live pages; medium → staging; low → staging with review flag
+- **Mechanical vs Intelligent:** Scripts handle boring stuff (querying the DB, writing files, git); LLMs handle the brain work (extracting facts, figuring out what's related)
+- **Enrich Before You Create:** Before writing a new page, check if a page already exists. If your fact fits in something that's already there, add to it instead of making a duplicate
+- **Link Both Ways:** Every new page gets backlinks in the existing pages it's related to
+- **Confidence Gating:** High-confidence facts → live pages; medium → staging; low → staging with a review flag
 - **Zero Daemon:** No always-on services, no MCP servers, no vector DBs. Just cron + scripts + git
 
 ## Requirements
