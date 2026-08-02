@@ -2232,6 +2232,12 @@ def auto_extract_and_ingest(max_sessions: Optional[int] = None, reprocess: bool 
 
     # v7: Auto-manage staging before heartbeat (so count reflects promos/purges)
     registry = load_slug_registry()
+    # One-time rebuild: scan all existing pages into the slug registry on first v7 run
+    if len(registry.get("slugs", {})) < 100:
+        log(f"Registry has only {len(registry.get('slugs', {}))} entries — triggering initial rebuild from live pages")
+        registry = rebuild_slug_registry()
+        save_slug_registry(registry)
+        log(f"Rebuilt slug registry: {len(registry.get('slugs', {}))} slugs from live pages")
     auto_manage_staging(registry)
     save_slug_registry(registry)
 
