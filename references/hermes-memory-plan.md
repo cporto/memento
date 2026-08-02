@@ -60,7 +60,7 @@ A batch extract-and-append system can't do this. But a full daemon is overkill f
 
 **Where it runs:** Same machine, same cron system. Not a daemon — no always-on overhead.
 
-**The key insight:** This is a *classification* workload, not a *generation* workload. The model reads N pages and answers questions like "is this orphaned?", "do these two facts contradict each other?", "should this link to that?". A small model is sufficient. No need for Claude-level reasoning.
+**The key insight:** This is a *classification* workload, not a *generation* workload. The model reads N pages and answers questions like "is this orphaned?", "do these two facts contradict each other?", "should this link to that?". A small model is sufficient. No need for frontier-model reasoning.
 
 ---
 

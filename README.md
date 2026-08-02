@@ -117,7 +117,7 @@ memento/
 │   ├── hermes-memory-plan.md
 │   ├── session-to-wiki-design.md
 │   ├── understory-analysis.md
-│   ├── claude-review-reality-check.md
+│   ├── review-reality-check.md
 │   └── memory-hole-design-principles.md
 └── wiki/                              # Template wiki (empty)
     ├── .gitignore
