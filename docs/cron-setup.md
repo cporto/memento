@@ -75,16 +75,68 @@ export MEMENTO_TRANSCRIPT_BUDGET="50000"
 
 Adjust `--max` in the pipeline script to fit your available window.
 
-## Mutual Exclusion
+## Daily Curation (Phase 2 — v7.2+)
 
-If you run multiple wiki-related cron jobs (extraction + curation), use `wiki-lock.sh` to prevent overlapping runs:
+The curation pipeline (`wiki-compact.py`) runs AFTER extraction. It uses a small local LLM for classification tasks (contradiction detection, dedup decisions).
+
+### Using `hermes cron`
 
 ```bash
-# Check if extraction is running
+hermes cron create \
+  --schedule "0 7 * * *" \
+  --name "wiki-curation" \
+  --script "~/memento/scripts/wiki-curation.sh" \
+  --no-agent true \
+  --deliver "local"
+```
+
+### Curation wrapper script
+
+Create `~/memento/scripts/wiki-curation.sh`:
+
+```bash
+#!/bin/bash
+# Kick oMLX if not running (needed for LLM-based features)
+launchctl kickstart -k gui/$(id -u)/com.omlx.server 2>/dev/null
+
+# Wait for it
+for i in $(seq 1 30); do
+  curl -s http://127.0.0.1:8000/v1/models > /dev/null 2>&1 && break
+  sleep 2
+done
+
+# Curation env
+export LLM_API_BASE_URL="http://127.0.0.1:8000/v1"
+export LLM_MODEL="gemma-4-E4B-it-qat-mxfp4"
+export COMPACT_LLM_MAX_CALLS="40"
+
+# Run (uses same extraction lock to avoid interleaving)
+/usr/bin/python3 ~/.hermes/scripts/wiki-compact.py --llm-budget 40
+```
+
+### Running without oMLX (mechanical only)
+
+```bash
+/usr/bin/python3 wiki-compact.py --no-llm --dry-run
+```
+
+Mechanical features (broken links, orphan wiring, propagate flags) don't need an LLM. Set up a separate cron for this if you want a cheaper pre-check.
+
+## Mutual Exclusion
+
+The curation script uses the same `extraction` lock as the extraction pipeline. If extraction is still running when curation starts, it waits. No overlapping writes.
+
+```bash
+# Check if anything is running
 ./wiki-lock.sh check extraction
 
 # Extraction cron
 ./wiki-lock.sh acquire extraction
 python3 session-to-wiki.py --auto --max 10
+./wiki-lock.sh release extraction
+
+# Curation cron (waits if extraction still holds lock)
+./wiki-lock.sh acquire extraction
+python3 wiki-compact.py --llm-budget 40
 ./wiki-lock.sh release extraction
 ```

@@ -1,7 +1,7 @@
 # Hermes Agent Memory: Two-Layer Design
 
-**Status:** Design draft (July 2026). Phase 1 shipped as v7.1 (slug registry, staging auto-lifecycle, enrichment-first write path). Phase 2 (wiki-compact.py: contradiction resolution, orphan wiring, cross-reference propagation) not yet built.  
-**Date:** 2026-07-13  
+**Status:** ✅ Implemented. Phase 1 (extraction) shipped as v7.1. Phase 2 (curation) shipped as v7.2 with wiki-compact.py — contradiction resolution, deduplication, orphan wiring, broken link repair, cross-reference propagation. This document is retained as the design rationale.  
+**Date:** 2026-07-13 (designed), 2026-08-03 (Phase 2 completed)  
 **Context:** Based on Codacus's understory video, Karpathy's LLM Wiki pattern, and Hermes's existing infrastructure
 
 ---
@@ -123,11 +123,11 @@ The wiki format (index.md, log.md, wikilinks, entity/concept types) is the found
 3. Register cron job with heartbeat logging
 4. Tune extraction prompt → promote staging entries
 
-### Phase 2: Curation Pipeline
-1. Write `wiki-compact.py` with orphan detection + contradiction resolution
-2. Wire into compaction cron (less frequent than extraction)
-3. Test with small local model on oMLX
-4. Tune: automatic vs. flag-for-review
+### Phase 2: Curation Pipeline ✅ (shipped 2026-08-03)
+1. ✅ `wiki-compact.py` with all five features
+2. ✅ Tested against real 2,154-page wiki
+3. ✅ Small local model (Gemma-4-E4B) for classification
+4. ✅ Three outcomes: SUPERSEDE, CONTESTED, MERGE
 
 ### Phase 3: Optional — understory on TNAS
 1. Measure actual free RAM on TNAS

@@ -10,7 +10,7 @@ Memento is a memory system for [Hermes Agent](https://hermes-agent.nousresearch.
 
 Named after the Nolan film. Inspired by [Codacus](https://youtube.com/@Codacus) (Anirban Kar) and his [understory](https://github.com/thecodacus/understory) project — the best practical demo of persistent agent memory I've seen. The "Enrich Before You Create" and "Link Both Ways" rules are lifted straight from his YouTube walkthrough.
 
-> **Current status:** v7.1 — extraction pipeline with slug registry (prevents duplicates across directories), staging auto-lifecycle (auto-promote at ≥3 sources, auto-purge at >14 days), and enrichment-first write path. Full semantic curation (contradiction resolution, orphan wiring, cross-reference propagation) is next — see `references/hermes-memory-plan.md`.
+> **Current status:** v7.2 — extraction pipeline with slug registry, staging auto-lifecycle, plus the new curation pipeline (`wiki-compact.py`): contradiction resolution, deduplication, orphan page wiring, broken link repair, and cross-reference propagation. Runs after extraction each night.
 
 ## Architecture
 
@@ -83,6 +83,7 @@ Named after the Nolan film. Inspired by [Codacus](https://youtube.com/@Codacus) 
 - High-confidence facts go to live pages; low-confidence goes to staging for review
 
 ### Wiki Health
+- `wiki-compact.py` — nightly curation: fixes broken [[links]], merges duplicates, resolves contradictions, wires up orphan pages, flags stale cross-references
 - `wiki-lint.sh` — checks for duplicate slugs, broken [[links]], and orphan pages
 - `wiki-summary.sh` — generates a compact snapshot for sharing with other agents
 
@@ -102,11 +103,12 @@ memento/
 ├── LICENSE                            # MIT
 ├── SCHEMA.md                          # Wiki schema and conventions
 ├── scripts/
-│   ├── session-to-wiki.py             # Main extraction pipeline (1792 lines)
+│   ├── session-to-wiki.py             # Main extraction pipeline
+│   ├── wiki-compact.py                # Curation pipeline (contradictions, dedup, orphans, links, propagation)
 │   ├── wiki-lock.sh                   # Mutual exclusion lock
 │   ├── wiki-lint.sh                   # Wiki health checker
 │   ├── wiki-summary.sh               # Wiki snapshot generator
-│   ├── wiki-extract-pipeline.sh       # Cron wrapper script
+│   ├── wiki-extract-pipeline.sh       # Cron wrapper for extraction
 │   └── run-extraction-test.py         # Model comparison test harness
 ├── docs/
 │   ├── setup.md                       # Installation and configuration
