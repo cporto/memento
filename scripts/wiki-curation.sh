@@ -41,5 +41,27 @@ for i in $(seq 1 30); do
     sleep 2
 done
 
-# ── Run curation (waits for lock if extraction is still running) ─────────────
+# ── Wait for extraction to release the shared lock, then run curation ────────
+# wiki-lock.sh is fail-fast; this loop polls until the lock is free.
+# NOTE: do NOT acquire/release the lock here — wiki-compact.py acquires it
+# itself (acquire_lock()). If this wrapper also acquires it, wiki-compact's
+# own acquire sees the mkdir-only lock dir (no pid, fresh mtime) as "held but
+# not stale" and fails with "Cannot acquire lock: another wiki writer holds it".
+# So this wrapper ONLY waits for the lock to be free; the actual acquire/
+# release is owned by wiki-compact.py.
+LOCK_NAME="extraction"
+LOCK_RETRIES="${WIKI_CURATION_LOCK_RETRIES:-150}"
+LOCK_SLEEP="${WIKI_CURATION_LOCK_SLEEP:-60}"
+for attempt in $(seq 1 "$LOCK_RETRIES"); do
+    if ! "$LOCK_SCRIPT" status "$LOCK_NAME" >/dev/null 2>&1; then
+        break
+    fi
+    if [ "$attempt" -eq "$LOCK_RETRIES" ]; then
+        echo "FATAL: extraction lock still held after $((LOCK_RETRIES * LOCK_SLEEP))s; curation not run" >&2
+        exit 75
+    fi
+    sleep "$LOCK_SLEEP"
+done
+
+# wiki-compact.py acquires and releases the extraction lock itself.
 "$PYTHON_BIN" "$HOME/.hermes/scripts/wiki-compact.py" ${NO_LLM_FLAG:-} "$@"
