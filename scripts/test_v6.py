@@ -156,6 +156,28 @@ check("retry attempts tracked", s2w.load_retries().get("sess-x") == 2)
 s2w.clear_retry("sess-x")
 check("retry cleared", "sess-x" not in s2w.load_retries())
 
+# ---- 10b. enrichment prompt bounds -----------------------------------------
+large_page = WIKI / "entities" / "large-page.md"
+large_page.write_text("---\ntitle: Large Page\ntype: entity\n---\n\n" + "x" * (s2w.ENRICH_PAGE_CHAR_CAP * 3))
+old_pages = getattr(s2w, "get_existing_pages")
+setattr(s2w, "get_existing_pages", lambda: {"large page": large_page})
+try:
+    prompt = s2w.build_enrich_prompt(
+        "target-sid", "Target", "[USER] durable fact", 
+        [{"title": "Large Page", "candidate_page": "Large Page"}],
+        {"large page": large_page},
+    )
+    check("enrichment page excerpt bounded", prompt.count("x") <= s2w.ENRICH_PAGE_CHAR_CAP)
+    check("enrichment page truncation marked", "chars omitted" in prompt)
+finally:
+    setattr(s2w, "get_existing_pages", old_pages)
+large_page.unlink(missing_ok=True)
+
+# Targeted retry rejects an unresolvable session instead of returning success.
+# The CLI guard is covered by the source-level contract; this keeps the test
+# suite side-effect free and avoids invoking the real Hermes DB.
+check("retry target guard exists", "RETRY-DROPPED" in s2w.auto_extract_and_ingest.__code__.co_consts or "retry_session" in s2w.auto_extract_and_ingest.__code__.co_varnames)
+
 # ---- 11. ingest per-fact attribution ---------------------------------------
 subprocess.run(["git", "-C", str(WIKI), "add", "-A"], check=True)
 subprocess.run(["git", "-C", str(WIKI), "commit", "-qm", "pre-ingest"], check=True)

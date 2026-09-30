@@ -110,7 +110,14 @@ HEALTH_FILE = WIKI_DIR / ".health"
 LOCK_SCRIPT = Path(__file__).resolve().parent / "wiki-lock.sh"
 LOCK_NAME = "extraction"
 LOCK_ROOT = Path(os.environ.get("WIKI_LOCK_DIR", HOME / ".cache" / "wiki-locks"))
-EXPECTED_HERMES_VERSION = "0.19"  # Prefix match: allows 0.19.x, rejects 0.20+
+# Minimum supported Hermes major.minor floor (tuple). The extractor HARD-FAILS
+# only if the installed Hermes is OLDER than this floor (genuinely-incompatible
+# backward schema drift). A FORWARD minor bump (>= floor) is logged to .health
+# and PROCEEDS — it must never stall the pipeline the way the old exact-prefix
+# pin did (09-01 x3 stall on the 0.20->0.21 bump). Resolves against the runtime.
+# (Synced from deployed 2026-09-02 to stop the stale repo pin from reintroducing
+# the failure on re-deploy.)
+MIN_HERMES_VERSION = (0, 21)
 MIN_MESSAGES = 2
 
 # Tunables (env-overridable, with reasoning for defaults)
@@ -118,6 +125,13 @@ MAX_RETRY_ATTEMPTS = int(os.environ.get("MEMENTO_MAX_RETRY", "5"))
 MIN_SESSION_AGE_MIN = int(os.environ.get("MEMENTO_MIN_AGE_MIN", "120"))
 TRANSCRIPT_BUDGET = int(os.environ.get("MEMENTO_TRANSCRIPT_BUDGET", "50000"))
 PER_MSG_CAP = 10000          # chars; head+tail kept, middle elided
+# Enrichment must never embed unbounded wiki pages. Keep enough context for
+# contradiction matching while preventing a single page from consuming the
+# entire model request/output budget.
+ENRICH_PAGE_CHAR_CAP = int(os.environ.get("MEMENTO_ENRICH_PAGE_CHAR_CAP", "6000"))
+ENRICH_PAGES_MAX = int(os.environ.get("MEMENTO_ENRICH_PAGES_MAX", "8"))
+ENRICH_PAGE_CONTEXT_CAP = int(os.environ.get("MEMENTO_ENRICH_PAGE_CONTEXT_CAP", "40000"))
+ENRICH_CANDIDATE_FACTS_MAX = int(os.environ.get("MEMENTO_ENRICH_CANDIDATE_FACTS_MAX", "24"))
 LLM_MAX_TOKENS = int(os.environ.get("LLM_MAX_TOKENS", "8192"))
 HINTS_FILE = Path(os.environ.get("MEMENTO_HINTS_FILE", HOME / ".memento" / "hints.md"))
 
@@ -234,11 +248,24 @@ def version_check():
     log.md here, breaching its own mutual-exclusion invariant.)
     """
     result = run_cmd(["hermes", "--version"])
-    if EXPECTED_HERMES_VERSION not in result.stdout:
-        detail = (f"expected {EXPECTED_HERMES_VERSION}*, "
-                  f"got: {result.stdout.strip()}")
+    raw = result.stdout.strip()
+    m = re.search(r"v?(\d+)\.(\d+)", raw)
+    if not m:
+        write_health("VERSION-UNPARSEABLE", f"could not parse version from: {raw}")
+        abort(f"Hermes Agent version unparseable: {raw}")
+    runtime = (int(m.group(1)), int(m.group(2)))
+    if runtime < MIN_HERMES_VERSION:
+        detail = (f"runtime {raw} is BELOW minimum floor "
+                  f"{MIN_HERMES_VERSION[0]}.{MIN_HERMES_VERSION[1]} — "
+                  f"incompatible backward drift")
         write_health("VERSION-MISMATCH", detail)
         abort(f"Hermes Agent version mismatch: {detail}")
+    if runtime > MIN_HERMES_VERSION:
+        detail = (f"runtime {raw} is AHEAD of floor "
+                  f"{MIN_HERMES_VERSION[0]}.{MIN_HERMES_VERSION[1]} — "
+                  f"forward bump, proceeding (not blocking)")
+        write_health("VERSION-FORWARD-BUMP", detail)
+        log(detail, "WARN")
     log("Hermes Agent version OK")
 
 
@@ -1373,16 +1400,34 @@ def build_enrich_prompt(session_id: str, title: str, transcript: str,
             candidate_titles.add(cp.strip())
 
     parts = []
-    for cp_title in sorted(candidate_titles):
+    page_context_chars = 0
+    selected_titles = sorted(candidate_titles)[:ENRICH_PAGES_MAX]
+    for cp_title in selected_titles:
         content = fetch_page_content(cp_title, existing_pages)
         if content:
-            parts.append(f"--- Page: {cp_title} ---\n{content}")
+            remaining = ENRICH_PAGE_CONTEXT_CAP - page_context_chars
+            if remaining <= 0:
+                break
+            excerpt_cap = min(ENRICH_PAGE_CHAR_CAP, remaining)
+            excerpt = content[:excerpt_cap]
+            if len(content) > excerpt_cap:
+                excerpt += f"\n[... {len(content) - excerpt_cap} chars omitted ...]"
+            page_context_chars += len(excerpt)
+            parts.append(f"--- Page: {cp_title} ---\n{excerpt}")
         else:
-            parts.append(f"--- Page: {cp_title} ---\n[Content not found or page does not exist]")
+            marker = f"--- Page: {cp_title} ---\n[Content not found or page does not exist]"
+            if page_context_chars + len(marker) <= ENRICH_PAGE_CONTEXT_CAP:
+                parts.append(marker)
+                page_context_chars += len(marker)
 
+    if len(candidate_titles) > len(selected_titles):
+        parts.append(f"[... {len(candidate_titles) - len(selected_titles)} candidate pages omitted ...]")
     full_page_content_text = ("\n\n".join(parts) if parts else
                               "No existing wiki pages were identified as candidates for this session.")
-    candidate_facts_json = json.dumps(candidate_facts, indent=2) if candidate_facts else "[]"
+    bounded_candidates = candidate_facts[:ENRICH_CANDIDATE_FACTS_MAX]
+    candidate_facts_json = json.dumps(bounded_candidates, indent=2) if bounded_candidates else "[]"
+    if len(candidate_facts) > len(bounded_candidates):
+        candidate_facts_json += f"\n[... {len(candidate_facts) - len(bounded_candidates)} candidate facts omitted ...]"
 
     body = (ENRICH_PROMPT
             .replace("<session_id>", session_id)
@@ -2067,7 +2112,7 @@ def _write_pass_facts(facts: list, sid: str, pass_num: int,
     return created, enriched, staging, index_entries
 
 
-def auto_extract_and_ingest(max_sessions: Optional[int] = None, reprocess: bool = False):
+def auto_extract_and_ingest(max_sessions: Optional[int] = None, reprocess: bool = False, retry_session: Optional[str] = None):
     """Full pipeline: extract sessions, call LLM, write wiki pages.
 
     Per-session flow:
@@ -2091,6 +2136,18 @@ def auto_extract_and_ingest(max_sessions: Optional[int] = None, reprocess: bool 
         f"{len(retries)} sessions pending retry")
 
     sessions = fetch_unprocessed_sessions(processed)
+    if retry_session:
+        sessions = [(sid, title) for sid, title in sessions if sid == retry_session]
+        if not sessions:
+            # A retry target may already be checkpointed after a prior pass; fetch it explicitly.
+            sessions = [(sid, title) for sid, title in fetch_unprocessed_sessions(set()) if sid == retry_session]
+        log(f"Targeted retry session {retry_session[:8]}: {len(sessions)} match(es)")
+        if not sessions:
+            reason = f"unresolvable retry session {retry_session}: not present in Hermes DB"
+            clear_retry(retry_session)
+            append_log(f"## [{datetime.now(timezone.utc).strftime('%Y-%m-%d')}] extraction | RETRY-DROPPED -- {reason}")
+            write_health("PARTIAL", reason)
+            raise RuntimeError(reason)
     log(f"Found {len(sessions)} unprocessed sessions for auto mode")
 
     if max_sessions and len(sessions) > max_sessions:
@@ -2373,10 +2430,19 @@ def auto_manage_staging(registry: dict):
 
 def main():
     reprocess = "--reprocess" in sys.argv
+    retry_session = None
+    if "--retry-session" in sys.argv:
+        try:
+            retry_session = sys.argv[sys.argv.index("--retry-session") + 1]
+        except IndexError:
+            retry_session = ""
     ingest_mode = "--ingest" in sys.argv
     auto_mode = "--auto" in sys.argv
     promote_mode = "--promote" in sys.argv
     max_sessions = None
+
+    if reprocess and retry_session:
+        abort("--reprocess and --retry-session are mutually exclusive")
 
     if reprocess and "--help" not in sys.argv:
         log("WARNING: --reprocess processes ALL sessions, including previously "
@@ -2397,6 +2463,7 @@ Options:
   --promote [X]      List staging/ pages; or promote slug X (or 'all') to live.
   --max N            Limit to N sessions per run (default: no limit).
   --reprocess        Process ALL sessions, including completed ones (backfill).
+  --retry-session ID  Process only the exact session ID from .retry.
   --help, -h         Show this help.
 
 Environment:
@@ -2441,7 +2508,7 @@ Exit codes: 0 ok | 1 fatal/lock | 2 ingest failed | 3 partial (some sessions fai
         if not acquire_lock():
             sys.exit(1)
         try:
-            auto_extract_and_ingest(max_sessions=max_sessions, reprocess=reprocess)
+            auto_extract_and_ingest(max_sessions=max_sessions, reprocess=reprocess, retry_session=retry_session)
         except Exception as e:
             log(f"Error during auto extraction: {e}", "ERROR")
             write_health("CRASHED", str(e)[:200])
